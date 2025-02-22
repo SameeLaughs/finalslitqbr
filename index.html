@@ -200,7 +200,6 @@
 </div>
 <script>
     let questions = [];
-    let selectedCategories = [];
     let currentQuestionIndex = -1;
     let score = 0;
     let intervalId, timerId;
@@ -210,49 +209,22 @@
     let buzzedTimeLeft = 30;
 
     async function loadQuestions() {
-    try {
-        const response = await fetch('questions.json');
-        const allQuestions = await response.json();
-        
-        questions = allQuestions.filter(q => {
-            // no category is selected, include everything
-            if (selectedCategories.length === 0) return true;
+        try {
+            const response = await fetch('questions.json');
+            questions = await response.json();
             
-            return selectedCategories.some(category => category === "Uncategorized" || q.category === category);
-        });
-        
-        if (questions.length === 0) {
-            alert("No questions available for the selected categories.");
-            document.getElementById("categorySelection").style.display = "flex";
-            document.getElementById("gameContainer").style.display = "none";
-            return;
+            if (questions.length === 0) {
+                alert("No questions available.");
+                return;
+            }
+            startQuestion();
+        } catch (error) {
+            console.error("Error loading questions:", error);
+            document.getElementById("question").innerText = "There was an issue loading the questions.";
         }
-        startQuestion();
-    } catch (error) {
-        console.error("Error loading questions:", error);
-        document.getElementById("question").innerText = "There was an issue loading the questions.";
     }
-}
-// slider for interval of speed
-document.getElementById("speedSlider").addEventListener("input", function() {
-    document.getElementById("speedValue").innerText = this.value + "ms";
-});
-
-
 
     function startGame() {
-        selectedCategories = [];
-        document.getElementById("myth").checked && selectedCategories.push("Myth");
-        document.getElementById("language").checked && selectedCategories.push("Language");
-        document.getElementById("literature").checked && selectedCategories.push("Literature");
-        document.getElementById("history").checked && selectedCategories.push("History");
-        document.getElementById("uncategorized").checked && selectedCategories.push("Uncategorized");
-
-        if (selectedCategories.length === 0) {
-            alert("Please select at least one category.");
-            return;
-        }
-
         document.getElementById("categorySelection").style.display = "none";
         document.getElementById("gameContainer").style.display = "flex";
         loadQuestions();
@@ -260,21 +232,16 @@ document.getElementById("speedSlider").addEventListener("input", function() {
     
     function startQuestion() {
         resetTimer();
-        let newQuestionIndex;
-        do {
-            newQuestionIndex = Math.floor(Math.random() * questions.length);
-        } while (newQuestionIndex === currentQuestionIndex);
-
-        currentQuestionIndex = newQuestionIndex;
+        currentQuestionIndex = Math.floor(Math.random() * questions.length);
         currentWordIndex = 0;
         document.getElementById("question").innerText = "";  
-        document.getElementById("answerInput");
-        document.getElementById("submitAnswer");
+        document.getElementById("answerInput").style.display = "none";
+        document.getElementById("submitAnswer").style.display = "none";
         document.getElementById("buzzButton").disabled = false;
         buzzedWord = "";
         buzzedTimeLeft = 30;
         clearInterval(intervalId);
-    intervalId = setInterval(revealNextWord, document.getElementById("speedSlider").value); // changed from 300 to slider
+        intervalId = setInterval(revealNextWord, document.getElementById("speedSlider").value);
         timerId = setInterval(countDown, 1000);
     }
 
@@ -288,97 +255,32 @@ document.getElementById("speedSlider").addEventListener("input", function() {
         }
     }
 
-    //  function for both button click and space key 
-function buzz() {
-    clearInterval(intervalId);
-    clearInterval(timerId);
-    buzzedWord = questions[currentQuestionIndex].question.split(' ')[currentWordIndex - 1];
-    buzzedTimeLeft = timeLeft;
-    document.getElementById("buzzButton").disabled = true;
-    document.getElementById("answerInput").style.display = 'inline';
-    document.getElementById("submitAnswer").style.display = 'inline';
-}
+    function buzz() {
+        clearInterval(intervalId);
+        clearInterval(timerId);
+        buzzedWord = questions[currentQuestionIndex].question.split(' ')[currentWordIndex - 1];
+        buzzedTimeLeft = timeLeft;
+        document.getElementById("buzzButton").disabled = true;
+        document.getElementById("answerInput").style.display = 'inline';
+        document.getElementById("submitAnswer").style.display = 'inline';
+    }
 
-// button click event
-document.getElementById("buzzButton").onclick = function() {
-    buzz();  
-};
-
-function clearLog() {
-    localStorage.removeItem("quizLog"); // remove from storage
-    document.getElementById("logContent").innerHTML = "<p>No attempts logged yet.</p>"; // Clears the displayed log
-}
-
-// event listener to the button
-document.getElementById("clearLogButton").addEventListener("click", clearLog);
-
-
-
-
-    document.getElementById("submitAnswer").onclick = function() {
-        checkAnswer();
-    };
-
-function checkAnswer() {
-    const userAnswer = document.getElementById("answerInput").value.trim().toLowerCase();
-    const correctAnswer = questions[currentQuestionIndex].answer;
-    const correctAnswerDisplay = document.getElementById("correctAnswerDisplay");
-
-    correctAnswerDisplay.innerText = "Answer: " + correctAnswer;
-    correctAnswerDisplay.style.color = "black"; // nvm
+    document.getElementById("buzzButton").onclick = buzz;
     
-        if (document.body.classList.contains("dark-mode")) {
-        correctAnswerDisplay.style.color = "yellow";
-    } else {
-        correctAnswerDisplay.style.color = "black";
+    function checkAnswer() {
+        const userAnswer = document.getElementById("answerInput").value.trim().toLowerCase();
+        const correctAnswer = questions[currentQuestionIndex].answer.toLowerCase();
+        document.getElementById("correctAnswerDisplay").innerText = "Answer: " + questions[currentQuestionIndex].answer;
+        document.getElementById("submitAnswer").innerText = "Next Question";
+        document.getElementById("submitAnswer").onclick = startNextQuestion;
     }
 
-
-    logAttempt(userAnswer === correctAnswer.toLowerCase(), userAnswer);
-
-    document.getElementById("submitAnswer").innerText = "Next Question";
-    document.getElementById("submitAnswer").onclick = startNextQuestion;
-}
-
-function startNextQuestion() {
-    document.getElementById("correctAnswerDisplay").innerText = ""; 
-    document.getElementById("answerInput").value = '';
-    
-    document.getElementById("submitAnswer").innerText = "Submit Answer";
-    document.getElementById("submitAnswer").onclick = checkAnswer;
-
-    startQuestion();
-}
-
-
-    function logAttempt(isCorrect, userAnswer) {
-        const logEntry = {
-            question: questions[currentQuestionIndex].question,
-            correctAnswer: questions[currentQuestionIndex].answer,
-            userAnswer,
-            result: isCorrect ? "Correct" : "Incorrect",
-            buzzedWord,
-            buzzedTimeLeft,
-            timestamp: new Date().toLocaleString()
-        };
-
-        const log = JSON.parse(localStorage.getItem("quizLog") || "[]");
-        log.push(logEntry);
-        localStorage.setItem("quizLog", JSON.stringify(log));
-    }
-
-    function viewLog() {
-        const log = JSON.parse(localStorage.getItem("quizLog") || "[]");
-        const logContent = document.getElementById("logContent");
-        logContent.innerHTML = log.length
-            ? log.map(entry => `<p><b>Question:</b> ${entry.question}<br><b>Your Answer:</b> ${entry.userAnswer}<br><b>Result:</b> ${entry.result}<br><b> Answer:</b> ${entry.correctAnswer}<br><b>Buzzed Word:</b> ${entry.buzzedWord}<br><b>Time Left on Buzz:</b> ${entry.buzzedTimeLeft} seconds</p><hr>`).join('')
-            : "<p>No attempts logged yet.</p>";
-
-        document.getElementById("logModal").style.display = "flex";
-    }
-
-    function closeLog() {
-        document.getElementById("logModal").style.display = "none";
+    function startNextQuestion() {
+        document.getElementById("correctAnswerDisplay").innerText = "";
+        document.getElementById("answerInput").value = '';
+        document.getElementById("submitAnswer").innerText = "Submit Answer";
+        document.getElementById("submitAnswer").onclick = checkAnswer;
+        startQuestion();
     }
 
     function resetTimer() {
@@ -401,13 +303,13 @@ function startNextQuestion() {
         document.body.classList.toggle("dark-mode");
     };
 
-//  event listener for spacebar 
-document.addEventListener("keydown", function(event) {
-    if (event.key === " " && !document.getElementById("buzzButton").disabled) {
-        buzz();
-    }
-});
+    document.addEventListener("keydown", function(event) {
+        if (event.key === " " && !document.getElementById("buzzButton").disabled) {
+            buzz();
+        }
+    });
 </script>
+    
 <!-- <footer style="position: fixed; top: 0; left: 0; margin: 10px; text-align: left; font-size: 12px; color: #777;">
     sameelaughs !!! see <a href="https://docs.google.com/document/d/1-WN_S2N4p3Hbv3-IzPjr9G20nRHazstUhIyjktkLAjU/edit?tab=t.0" target="_blank">this doc</a> for documentation!
 </footer> -->
