@@ -25,10 +25,6 @@
             text-align: center;
             gap: 20px;
         }
-        body.dark-mode {
-            background-color: #2e2e2e;
-            color: #e4d0a4;
-        }
         h1 {
             font-size: 36px;
             margin-top: 10px;
@@ -37,6 +33,7 @@
             font-size: 22px;
             font-weight: 500;
             max-width: 90%;
+            white-space: normal;
             word-break: break-word;
             margin-top: 20px;
             margin-bottom: 30px;
@@ -44,6 +41,8 @@
         button {
             padding: 12px 20px;
             font-size: 16px;
+            border: 2px solid black;
+            cursor: pointer;
             border-radius: 8px;
         }
         #answerInput {
@@ -51,25 +50,30 @@
             font-size: 16px;
             width: 100%;
             max-width: 300px;
+            border: 2px solid #ccc;
             border-radius: 8px;
             display: none;
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container" id="gameContainer">
         <h1>scrimantem</h1>
         <p>Advanced Certamen Questions</p>
+        <div id="timer">Time Left: <span id="timeLeft">30</span> seconds</div>
         <div id="question"></div>
         <button id="buzzButton">Buzz!</button>
         <input type="text" id="answerInput" placeholder="Your answer..." />
         <button id="submitAnswer">Submit Answer</button>
+        <span id="speedValue">300ms</span>
+        <input type="range" id="speedSlider" min="100" max="1000" value="300" step="50">
     </div>
 
     <script>
         let questions = [];
         let currentQuestionIndex = -1;
         let currentWordIndex = 0;
+        let intervalId;
         
         async function loadQuestions() {
             try {
@@ -84,16 +88,17 @@
                 console.error("Error loading questions:", error);
             }
         }
-        
+
         function startQuestion() {
             let newQuestionIndex;
             do {
                 newQuestionIndex = Math.floor(Math.random() * questions.length);
             } while (newQuestionIndex === currentQuestionIndex);
+            
             currentQuestionIndex = newQuestionIndex;
             currentWordIndex = 0;
             document.getElementById("question").innerText = "";
-            revealNextWord();
+            intervalId = setInterval(revealNextWord, document.getElementById("speedSlider").value);
         }
 
         function revealNextWord() {
@@ -101,20 +106,26 @@
             if (currentWordIndex < words.length) {
                 document.getElementById("question").innerText += ' ' + words[currentWordIndex];
                 currentWordIndex++;
-                setTimeout(revealNextWord, 300);
+            } else {
+                clearInterval(intervalId);
             }
         }
 
         document.getElementById("buzzButton").onclick = function() {
+            clearInterval(intervalId);
             document.getElementById("answerInput").style.display = 'inline';
             document.getElementById("submitAnswer").style.display = 'inline';
         };
 
         document.getElementById("submitAnswer").onclick = function() {
-            alert("Answer: " + questions[currentQuestionIndex].answer);
+            document.getElementById("answerInput").value = '';
             startQuestion();
         };
 
+        document.getElementById("speedSlider").addEventListener("input", function() {
+            document.getElementById("speedValue").innerText = this.value + "ms";
+        });
+        
         loadQuestions();
     </script>
 </body>
